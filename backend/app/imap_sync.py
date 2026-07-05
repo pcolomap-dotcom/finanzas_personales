@@ -13,6 +13,8 @@ import re
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
 
+from .bank_senders import bank_for_sender, gmail_from_query, is_bank_sender
+
 
 def _decode_header(value: str | None) -> str:
     if not value:
@@ -68,19 +70,33 @@ def fetch_bank_emails(
     since_days: int = 30,
     folder: str = "INBOX",
     limit: int = 200,
+    use_bank_senders: bool = False,
 ) -> list[dict]:
-    """Devuelve una lista de dicts {subject, body, sender, date} de emails recientes."""
+    """Devuelve dicts {subject, body, sender, date, bank} de emails recientes.
+
+    Si ``use_bank_senders`` es True, filtra a los remitentes bancarios conocidos
+    (usando la búsqueda nativa de Gmail cuando está disponible, o filtrando en
+    cliente en cualquier otro proveedor).
+    """
     conn = imaplib.IMAP4_SSL(host)
+    is_gmail = "gmail" in host.lower() or "google" in host.lower()
     try:
         conn.login(user, password)
         conn.select(folder, readonly=True)
         since = (dt.date.today() - dt.timedelta(days=since_days)).strftime("%d-%b-%Y")
-        criteria = ["SINCE", since]
-        if sender_filter:
-            criteria = ["FROM", sender_filter, "SINCE", since]
-        typ, data = conn.search(None, *criteria)
+
+        typ = data = None
+        if use_bank_senders and is_gmail:
+            try:
+                typ, data = conn.search(None, "X-GM-RAW", gmail_from_query(since_days))
+            except imaplib.IMAP4.error:
+                typ = None
+        if typ != "OK" or data is None:
+            criteria = ["FROM", sender_filter, "SINCE", since] if sender_filter else ["SINCE", since]
+            typ, data = conn.search(None, *criteria)
         if typ != "OK":
             return []
+
         ids = data[0].split()[-limit:]
         out: list[dict] = []
         for msg_id in ids:
@@ -88,15 +104,19 @@ def fetch_bank_emails(
             if typ != "OK" or not raw or not raw[0]:
                 continue
             msg = email.message_from_bytes(raw[0][1])
+            sender = _decode_header(msg.get("From"))
+            if use_bank_senders and not is_bank_sender(sender):
+                continue  # descarta lo que no sea de un banco conocido
             try:
                 received = parsedate_to_datetime(msg.get("Date")).date()
             except Exception:
                 received = dt.date.today()
             out.append({
                 "subject": _decode_header(msg.get("Subject")),
-                "sender": _decode_header(msg.get("From")),
+                "sender": sender,
                 "body": _body_text(msg),
                 "date": received,
+                "bank": bank_for_sender(sender),
             })
         return out
     finally:

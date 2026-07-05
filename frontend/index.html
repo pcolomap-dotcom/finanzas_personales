@@ -16,9 +16,13 @@
 
 <nav class="tabs">
   <button class="tab active" data-view="resumen">Resumen</button>
+  <button class="tab" data-view="salud">Salud</button>
   <button class="tab" data-view="movimientos">Movimientos</button>
   <button class="tab" data-view="importar">Importar</button>
   <button class="tab" data-view="presupuestos">Presupuestos</button>
+  <button class="tab" data-view="deudas">Deudas</button>
+  <button class="tab" data-view="traspasos">Traspasos</button>
+  <button class="tab" data-view="correo">Correo</button>
 </nav>
 
 <main id="app">
@@ -35,6 +39,21 @@
     </div>
   </section>
 
+  <!-- SALUD -->
+  <section id="view-salud" class="view">
+    <div class="card">
+      <h2>Salud financiera</h2>
+      <div class="row">
+        <label style="flex:2">Ingreso mensual (CLP)
+          <input type="number" id="salud-income" placeholder="ej. 1850000" /></label>
+        <button id="salud-calc" class="btn primary" style="flex:1;align-self:flex-end">Calcular</button>
+      </div>
+      <p class="muted">Si lo dejas vacío, usamos los ingresos detectados en el mes.
+        El cálculo es en base CLP (gastos + deudas).</p>
+    </div>
+    <div class="card" id="salud-result"></div>
+  </section>
+
   <!-- MOVIMIENTOS -->
   <section id="view-movimientos" class="view">
     <div class="card">
@@ -46,17 +65,33 @@
   <!-- IMPORTAR -->
   <section id="view-importar" class="view">
     <div class="card">
-      <h2>Importar cartola CSV</h2>
-      <p class="muted">Descarga el CSV de tu banco y súbelo. Detectamos las columnas
-        (fecha, glosa, monto o cargo/abono) automáticamente.</p>
+      <h2>Cuentas</h2>
+      <div id="accounts-list"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="acc-name" placeholder="Nombre (ej. Global66)" />
+        <input id="acc-bank" placeholder="Banco (ej. Global66)" />
+        <select id="acc-country"><option value="CL">Chile</option><option value="ES">España</option></select>
+        <select id="acc-currency"><option>CLP</option><option>EUR</option><option>USD</option></select>
+        <button id="acc-add" class="btn primary">Crear cuenta</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Importar cartola</h2>
+      <p class="muted">Descarga la cartola de tu banco (CSV o Excel .xls/.xlsx) y súbela.
+        Detectamos las columnas (fecha, glosa, monto o cargo/abono) automáticamente.
+        Compatible con la cartola .xls de Banco de Chile.</p>
       <label>Cuenta destino
         <select id="import-account"></select>
       </label>
-      <label>Archivo CSV
-        <input type="file" id="import-file" accept=".csv,text/csv" />
+      <label>Archivo (CSV o Excel)
+        <input type="file" id="import-file" accept=".csv,.xls,.xlsx,text/csv" />
       </label>
       <button id="import-btn" class="btn primary">Importar</button>
       <div id="import-result" class="result"></div>
+      <hr style="border-color:var(--border);margin:16px 0" />
+      <p class="muted">¿Quedaron movimientos "Sin categorizar"? Aplica las reglas de nuevo:</p>
+      <button id="recat-btn" class="btn">Re-categorizar movimientos sin categoría</button>
+      <div id="recat-result" class="result"></div>
     </div>
   </section>
 
@@ -74,6 +109,79 @@
     <div class="card">
       <h2>Presupuestos</h2>
       <div id="budget-list"></div>
+    </div>
+  </section>
+
+  <!-- DEUDAS -->
+  <section id="view-deudas" class="view">
+    <div id="debt-kpis" class="kpis"></div>
+    <div class="card">
+      <h2>Importar informe de deudas (CMF)</h2>
+      <p class="muted">Sube el CSV del informe de deudas / Boletín Comercial que
+        descargas con tu RUT. Se actualizan los saldos si vuelves a importarlo.</p>
+      <input type="file" id="debt-file" accept=".csv,text/csv" />
+      <button id="debt-import-btn" class="btn primary">Importar deudas</button>
+      <div id="debt-import-result" class="result"></div>
+    </div>
+    <div class="card">
+      <h2>Tus créditos</h2>
+      <div id="debt-list" class="tx-list"></div>
+    </div>
+  </section>
+
+  <!-- TRASPASOS -->
+  <section id="view-traspasos" class="view">
+    <div class="card">
+      <h2>Traspasos internos sugeridos</h2>
+      <p class="muted">Movimientos del mismo monto entre tus cuentas (salida ↔ entrada).
+        Al aprobar, se marcan como traspaso interno y se excluyen del resumen de gasto/ingreso.</p>
+      <div id="pairs-list"></div>
+    </div>
+    <div class="card">
+      <h2>Pagos de deuda sugeridos</h2>
+      <p class="muted">Cargos que parecen pago de tarjeta/línea/crédito. Al aplicar,
+        se descuenta del saldo de la deuda elegida (la deuda se limpia).</p>
+      <div id="debtpay-list"></div>
+    </div>
+  </section>
+
+  <!-- CORREO -->
+  <section id="view-correo" class="view">
+    <div class="card">
+      <h2>Conectar tu correo (Gmail)</h2>
+      <p class="muted">Sincroniza tus movimientos desde los avisos bancarios de tu Gmail.
+        Usa una <b>contraseña de aplicación</b> (no tu clave normal). No se guarda:
+        se usa solo para leer, en modo solo-lectura.</p>
+      <label>Cuenta destino <select id="mail-account"></select></label>
+      <label>Servidor IMAP <input id="mail-host" value="imap.gmail.com" /></label>
+      <label>Correo <input id="mail-user" type="email" placeholder="tucorreo@gmail.com" /></label>
+      <label>Contraseña de aplicación
+        <input id="mail-pass" type="password" placeholder="xxxx xxxx xxxx xxxx" /></label>
+      <div class="row">
+        <label>Etiqueta / carpeta <input id="mail-folder" value="BANCOS" /></label>
+        <label>Días hacia atrás <input id="mail-days" type="number" value="30" /></label>
+      </div>
+      <button id="mail-sync-btn" class="btn primary">Sincronizar ahora</button>
+      <div id="mail-result" class="result"></div>
+    </div>
+
+    <div class="card">
+      <h2>Filtro de Gmail (etiqueta BANCOS)</h2>
+      <p class="muted">Crea una vez este filtro en Gmail para que etiquete tus correos
+        bancarios como <b>BANCOS</b>. Cópialo y pégalo al crear el filtro.</p>
+      <button id="mail-filter-btn" class="btn">Mostrar texto del filtro</button>
+      <div id="mail-filter-box"></div>
+    </div>
+
+    <div class="card">
+      <h2>Probar con un correo pegado</h2>
+      <p class="muted">¿Sin IMAP aún? Pega el cuerpo de un aviso bancario para ver cómo
+        lo interpreta y agregarlo.</p>
+      <label>Cuenta destino <select id="mailtext-account"></select></label>
+      <textarea id="mailtext-body" rows="4"
+        placeholder="Compra por $12.990 en LIDER el 03/07/2026 con tu tarjeta terminada en 1234."></textarea>
+      <button id="mailtext-btn" class="btn">Interpretar y agregar</button>
+      <div id="mailtext-result" class="result"></div>
     </div>
   </section>
 </main>

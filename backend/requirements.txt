@@ -3,3 +3,5 @@ uvicorn[standard]>=0.29
 SQLAlchemy>=2.0
 python-multipart>=0.0.9
 pydantic>=2.6
+xlrd>=2.0.1
+openpyxl>=3.1

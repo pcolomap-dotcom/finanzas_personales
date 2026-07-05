@@ -13,6 +13,7 @@ CATEGORIES = [
     ("Combustible", "expense", "#ef4444", "⛽"),
     ("Servicios básicos", "expense", "#6366f1", "💡"),
     ("Salud", "expense", "#ec4899", "💊"),
+    ("Seguros", "expense", "#0891b2", "🛡️"),
     ("Educación", "expense", "#14b8a6", "📚"),
     ("Entretenimiento", "expense", "#a855f7", "🎬"),
     ("Suscripciones", "expense", "#8b5cf6", "🔁"),
@@ -36,9 +37,12 @@ RULES: dict[str, list[str]] = {
     "Supermercado": ["lider", "jumbo", "santa isabel", "unimarc", "tottus", "acuenta",
                       "mercadona", "carrefour", "supermercado", "supercor", "consum", "alcampo"],
     "Restaurantes": ["mcdonald", "burger", "starbucks", "uber eats", "rappi", "pedidosya",
-                     "restaurant", "doggis", "glovo", "just eat", "telepizza", "kfc", "subway"],
+                     "restaurant", "doggis", "glovo", "just eat", "telepizza", "kfc", "subway",
+                     "five guys", "goiko", "gelateria", "cerveceria", "taberna", "xarcuteria"],
     "Transporte": ["uber", "cabify", "didi", "metro", "transantiago", "red movilidad", "bip",
-                   "taxi", "renfe", "cercanias", "emt", "peaje", "autopista"],
+                   "taxi", "renfe", "cercanias", "emt", "peaje", "autopista", "ouigo", "ave ",
+                   "alsa", "bus"],
+    "Entretenimiento": ["museo", "cine", "teatro", "entrada", "cinepolis", "cinemark"],
     "Combustible": ["copec", "shell", "petrobras", "aramco", "repsol", "cepsa", "bencina",
                     "combustible", "gasolinera", "esso", "terpel"],
     "Servicios básicos": ["enel", "cge", "aguas andinas", "metrogas", "movistar", "entel",
@@ -46,18 +50,23 @@ RULES: dict[str, list[str]] = {
                           "jazztel", "agua", "gasgas"],
     "Salud": ["farmacia", "cruz verde", "salcobrand", "ahumada", "clinica", "isapre", "fonasa",
               "sanitas", "adeslas", "hospital", "consulta"],
+    "Seguros": ["seguro", "prima seguro", "desgravamen", "seguro 360"],
     "Educación": ["colegio", "universidad", "matricula", "curso", "udemy", "coursera"],
     "Suscripciones": ["netflix", "spotify", "disney", "hbo", "max ", "amazon prime", "youtube",
-                      "apple com", "icloud", "chatgpt", "openai", "dropbox", "canva", "notion"],
+                      "apple com", "icloud", "chatgpt", "openai", "dropbox", "canva", "notion",
+                      "google play", "youtu", "merpago", "mercpago", "prime video"],
     "Compras": ["falabella", "paris", "ripley", "amazon", "aliexpress", "mercadolibre",
-                "mercado libre", "zara", "decathlon", "pccomponentes", "el corte ingles", "ikea"],
+                "mercado libre", "zara", "decathlon", "pccomponentes", "el corte ingles", "ikea",
+                "primark", "stradivarius", "bershka", "pull and bear", "coolligan"],
     "Comisiones bancarias": ["comision", "mantencion", "mantenimiento", "interes", "cargo mensual"],
     "Retiros efectivo": ["giro", "cajero", "atm", "retiro efectivo", "reintegro"],
     "Impuestos": ["sii", "tesoreria", "impuesto", "agencia tributaria", "hacienda", "patente"],
     "Sueldo": ["sueldo", "remuneracion", "nomina", "salario", "haberes", "abono nomina"],
+    "Reembolsos": ["devolucion", "reembolso", "reverso", "abono devolucion"],
     "Transferencias recibidas": ["abono transferencia", "transferencia recibida", "bizum recibido"],
     "Transferencias": ["transferencia", "traspaso", "transf ", "bizum", "pago a"],
-    "Pago tarjeta": ["pago tarjeta", "pago tc", "pat tarjeta", "pago de tarjeta"],
+    "Pago tarjeta": ["pago tarjeta", "pago tc", "pat tarjeta", "pago de tarjeta",
+                     "pago linea de cred", "linea de cred", "tarjeta cmr", "cargo por pago tc"],
 }
 
 DEMO_ACCOUNTS = [
@@ -67,27 +76,34 @@ DEMO_ACCOUNTS = [
 
 
 def run(with_demo_accounts: bool = True) -> None:
+    """Crea la BD y agrega categorías/reglas que falten (idempotente).
+
+    Se puede re-ejecutar sin duplicar: solo añade lo nuevo. Útil tras una
+    actualización que trae reglas nuevas.
+    """
     init_db()
     db = SessionLocal()
     try:
-        if db.query(Category).count() == 0:
-            for name, kind, color, icon in CATEGORIES:
+        existing_cats = {c.name for c in db.query(Category).all()}
+        added_c = 0
+        for name, kind, color, icon in CATEGORIES:
+            if name not in existing_cats:
                 db.add(Category(name=name, kind=kind, color=color, icon=icon))
-            db.commit()
-            print(f"✓ {len(CATEGORIES)} categorías creadas")
+                added_c += 1
+        db.commit()
 
         by_name = {c.name: c.id for c in db.query(Category).all()}
-        if db.query(Rule).count() == 0:
-            n = 0
-            for cat_name, patterns in RULES.items():
-                cid = by_name.get(cat_name)
-                if not cid:
-                    continue
-                for i, pat in enumerate(patterns):
+        existing_rules = {(r.pattern, r.category_id) for r in db.query(Rule).all()}
+        added_r = 0
+        for cat_name, patterns in RULES.items():
+            cid = by_name.get(cat_name)
+            if not cid:
+                continue
+            for i, pat in enumerate(patterns):
+                if (pat, cid) not in existing_rules:
                     db.add(Rule(pattern=pat, match_type="contains", category_id=cid, priority=100 + i))
-                    n += 1
-            db.commit()
-            print(f"✓ {n} reglas de categorización creadas")
+                    added_r += 1
+        db.commit()
 
         if with_demo_accounts and db.query(Account).count() == 0:
             for name, bank, country, currency, atype in DEMO_ACCOUNTS:
@@ -95,6 +111,7 @@ def run(with_demo_accounts: bool = True) -> None:
             db.commit()
             print(f"✓ {len(DEMO_ACCOUNTS)} cuentas de ejemplo creadas")
 
+        print(f"✓ Categorías: {len(by_name)} (nuevas: {added_c}) · Reglas nuevas: {added_r}")
         print("Base de datos lista.")
     finally:
         db.close()

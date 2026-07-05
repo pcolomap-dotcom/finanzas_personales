@@ -28,6 +28,20 @@ Luego abre http://127.0.0.1:8000 — la PWA se sirve desde el mismo backend.
 2. En la app: **Importar** → elige la cuenta y el preset del banco (o mapea columnas).
 3. Las transacciones se categorizan solas; corrige lo que falle y la app aprende.
 
+## Salud financiera
+Pestaña **Salud**: score 0–100 que combina tus gastos y deudas — carga financiera
+(cuota/ingreso), tasa de ahorro y endeudamiento — con recomendaciones por métrica.
+
+## Traspasos internos
+Pestaña **Traspasos**: detecta por igualdad de monto los movimientos entre tus
+propias cuentas y los **sugiere** para excluirlos del resumen (tras tu aprobación).
+También sugiere pagos de tarjeta/línea/crédito y, al aplicarlos, **reduce la deuda**.
+
+## Deudas (informe CMF)
+Pestaña **Deudas**: sube el CSV del informe de deudas / Boletín Comercial (con tu RUT)
+para ver tu **deuda total**, **cuota mensual** y el detalle de tus créditos (destaca
+los de consumo). Compatible con el formato oficial CMF.
+
 ## Conexión automática (Fase 2)
 - 🇨🇱 **Chile**: ingesta de emails de aviso bancario (modelo Kuanto), manual o por IMAP.
 - 🇪🇸 **España**: open banking PSD2 solo-lectura vía GoCardless/Nordigen (free tier).

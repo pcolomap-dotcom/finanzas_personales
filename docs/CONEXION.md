@@ -16,18 +16,38 @@ envían los bancos y convertirlos en transacciones.
   "sender": "enviodigital@bancochile.cl" }
 ```
 
-### Opción B — Sincronizar tu casilla por IMAP (automático)
+### Opción B — Sincronizar tu casilla por IMAP (automático, modelo Kuanto)
 1. En Gmail/Outlook crea una **contraseña de aplicación**.
-2. (Opcional) crea una regla que etiquete los avisos del banco.
-3. Llama `POST /api/ingest/email/imap`:
+2. Llama `POST /api/ingest/email/imap` con `use_bank_senders: true`:
 ```json
 { "account_id": 1, "host": "imap.gmail.com", "user": "tucorreo@gmail.com",
-  "password": "APP_PASSWORD", "sender_filter": "bancochile.cl", "since_days": 30 }
+  "password": "APP_PASSWORD", "since_days": 30, "use_bank_senders": true }
 ```
-La app lee en modo solo-lectura, parsea y agrega las transacciones (con dedup).
+Con `use_bank_senders` el app **filtra solo los correos de bancos chilenos conocidos**
+(no necesitas indicar el remitente). En Gmail usa la búsqueda nativa
+`from:(... OR ...) newer_than:Nd`; en otros proveedores filtra en el cliente.
+Lee en modo **solo-lectura**, parsea y agrega las transacciones (con dedup).
 
-**Bancos probados en el parser**: Banco de Chile, Santander, BCI, Mach, Falabella
-(patrones genéricos; se extienden fácil en `app/email_ingest.py`).
+**Catálogo de remitentes** (`app/bank_senders.py`): **63 direcciones de 29 bancos/
+fintech** (Banco de Chile, Edwards, Santander, BCI, Itaú, Scotiabank, BancoEstado,
+Falabella/CMR, BICE, Consorcio, Ripley, Security, Coopeuch, Tenpo, Mach, Mercado
+Pago, Global66, Fintual, Copec Pay, Prex, Los Héroes, Banco Internacional, etc.).
+Consulta el catálogo en `GET /api/bank-senders`.
+
+### Opción C — Etiqueta de Gmail "BANCOS" (la más simple, recomendada)
+1. En Gmail crea **un filtro** con el texto que entrega `GET /api/bank-senders/gmail-filter`
+   (un `from:(... OR ...)` con los 63 remitentes) y aplícale la etiqueta **BANCOS**.
+   Marca "aplicar también a las conversaciones coincidentes" para etiquetar el histórico.
+2. Llama `POST /api/ingest/email/imap` leyendo esa etiqueta:
+```json
+{ "account_id": 1, "host": "imap.gmail.com", "user": "tucorreo@gmail.com",
+  "password": "APP_PASSWORD", "folder": "BANCOS", "use_bank_senders": false }
+```
+Gmail expone cada etiqueta como una "carpeta" IMAP, así que basta con leer `folder: "BANCOS"`.
+El filtrado ya lo hizo Gmail; el app solo parsea y agrega (con dedup).
+
+**Formatos probados en el parser**: Banco de Chile, Santander, BCI, Itaú,
+BancoEstado, Mach, Mercado Pago, Falabella (patrón genérico + `received_date`).
 
 ## 🇪🇸 España — Open Banking PSD2 (GoCardless / Nordigen, free tier)
 

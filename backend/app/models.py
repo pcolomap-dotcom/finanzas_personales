@@ -58,6 +58,9 @@ class Transaction(Base):
     currency: Mapped[str] = mapped_column(String(3), default="CLP")
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     is_recurring: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_internal: Mapped[bool] = mapped_column(Boolean, default=False)  # traspaso interno (excluido del resumen)
+    transfer_checked: Mapped[bool] = mapped_column(Boolean, default=False)  # ya revisado (no re-sugerir)
+    debt_id: Mapped[int | None] = mapped_column(ForeignKey("debts.id"), nullable=True)  # pago aplicado a deuda
     source: Mapped[str] = mapped_column(String(10), default="csv")  # csv|pdf|email|api|manual
     dedup_hash: Mapped[str] = mapped_column(String(40), index=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
@@ -94,6 +97,30 @@ class Budget(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     currency: Mapped[str] = mapped_column(String(3), default="CLP")
     period: Mapped[str] = mapped_column(String(10), default="monthly")
+
+
+class Debt(Base):
+    """Operación de crédito vigente (importada del informe de deudas CMF/BIC)."""
+
+    __tablename__ = "debts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    institution: Mapped[str] = mapped_column(String(120))
+    credit_type: Mapped[str] = mapped_column(String(60), default="")  # Consumo|Tarjeta|Línea
+    code: Mapped[str] = mapped_column(String(80), default="", index=True)  # código operación
+    original_amount: Mapped[Decimal] = mapped_column(Numeric(16, 2), default=0)
+    current_amount: Mapped[Decimal] = mapped_column(Numeric(16, 2), default=0)
+    at_day_amount: Mapped[Decimal] = mapped_column(Numeric(16, 2), default=0)
+    monthly_payment: Mapped[Decimal] = mapped_column(Numeric(16, 2), default=0)  # carga financiera
+    arrears: Mapped[Decimal] = mapped_column(Numeric(16, 2), default=0)  # mora actual
+    granted_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    due_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    report_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    payment_day: Mapped[int | None] = mapped_column(Integer, nullable=True)  # día de vencimiento mensual
+    last_paid_period: Mapped[str] = mapped_column(String(7), default="")  # "YYYY-MM" cuota ya pagada
+    currency: Mapped[str] = mapped_column(String(3), default="CLP")
+    source: Mapped[str] = mapped_column(String(10), default="cmf")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class ImportBatch(Base):

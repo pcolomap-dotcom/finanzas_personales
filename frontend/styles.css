@@ -29,10 +29,13 @@ body {
 .brand { font-size: 20px; font-weight: 700; }
 .brand span { letter-spacing: .5px; }
 .controls { display: flex; gap: 8px; }
-select, input[type="month"], input[type="number"], input[type="file"] {
+select, input[type="month"], input[type="number"], input[type="file"],
+input[type="text"], input[type="email"], input[type="password"], textarea {
   background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 10px; font-size: 14px;
 }
+textarea { width: 100%; font-family: inherit; resize: vertical; }
+#mail-filter-box textarea { font-family: ui-monospace, monospace; font-size: 11px; }
 .tabs {
   display: flex; gap: 4px; padding: 10px 14px; overflow-x: auto;
   background: var(--surface); border-bottom: 1px solid var(--border);
@@ -100,3 +103,46 @@ label select, label input { width: 100%; margin-top: 4px; }
 .budget .fill { display: block; height: 100%; border-radius: 7px; }
 .budget.over .fill { background: var(--danger) !important; }
 .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+
+/* Debts */
+.debt { border-bottom: 1px solid var(--border); padding: 12px 0; }
+.debt-head { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; }
+.debt-head .ico { font-size: 20px; text-align: center; }
+.debt-head .desc .t { font-size: 14px; font-weight: 600; }
+.debt-head .desc .m { font-size: 12px; color: var(--muted); }
+.debt-head .amount { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.debt-edit { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0 0 54px; }
+.debt-edit label { margin: 0; font-size: 11px; }
+.debt-edit input { width: 100px; margin-top: 2px; }
+.btn.mini { padding: 6px 10px; font-size: 12px; }
+
+/* Salud financiera */
+.gauge-wrap { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.gauge { width: 150px; height: 150px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0; }
+.gauge-inner { width: 116px; height: 116px; border-radius: 50%; background: var(--surface);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.gauge-score { font-size: 42px; font-weight: 800; line-height: 1; }
+.gauge-label { font-size: 14px; font-weight: 700; margin-top: 4px; }
+.gauge-side { font-size: 13px; line-height: 1.9; }
+.metrics { margin-top: 18px; }
+.metric { margin: 14px 0; }
+.metric-top { display: flex; justify-content: space-between; font-size: 14px;
+  font-weight: 600; margin-bottom: 5px; }
+.metric .track { height: 8px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.metric .fill { display: block; height: 100%; border-radius: 5px; background: var(--muted); }
+.metric.good .fill { background: #22c55e; }
+.metric.warn .fill { background: #eab308; }
+.metric.bad .fill { background: #ef4444; }
+.metric .muted { margin-top: 4px; }
+.neg-text { color: var(--danger); }
+
+/* Sugerencias (traspasos / pagos de deuda) */
+.sugg { display: flex; justify-content: space-between; gap: 12px; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.sugg-info { flex: 1; min-width: 200px; font-size: 13px; line-height: 1.5; }
+.sugg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Chips (cuentas) */
+.chip { display: inline-block; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 4px 12px; font-size: 13px; margin: 2px 0; }

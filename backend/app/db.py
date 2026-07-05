@@ -31,7 +31,34 @@ def get_db():
 
 
 def init_db() -> None:
-    """Crea las tablas si no existen."""
+    """Crea las tablas si no existen y aplica micro-migraciones."""
     from . import models  # noqa: F401  (registra los modelos)
 
     Base.metadata.create_all(bind=engine)
+    _migrate()
+
+
+def _migrate() -> None:
+    """Añade columnas nuevas a tablas existentes (SQLite ADD COLUMN idempotente)."""
+    from sqlalchemy import text
+
+    wanted = {
+        "debts": [
+            ("payment_day", "INTEGER"),
+            ("last_paid_period", "VARCHAR(7) DEFAULT ''"),
+        ],
+        "transactions": [
+            ("is_internal", "BOOLEAN DEFAULT 0"),
+            ("transfer_checked", "BOOLEAN DEFAULT 0"),
+            ("debt_id", "INTEGER"),
+        ],
+    }
+    with engine.begin() as conn:
+        for table, columns in wanted.items():
+            info = list(conn.execute(text(f"PRAGMA table_info({table})")))
+            if not info:
+                continue  # la tabla aún no existe; create_all ya la crea completa
+            existing = {row[1] for row in info}
+            for name, ddl in columns:
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))

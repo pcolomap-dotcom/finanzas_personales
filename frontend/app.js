@@ -34,6 +34,9 @@ document.querySelectorAll(".tab").forEach((tab) => {
     $("#view-" + tab.dataset.view).classList.add("active");
     if (tab.dataset.view === "presupuestos") loadBudgets();
     if (tab.dataset.view === "movimientos") loadTransactions();
+    if (tab.dataset.view === "deudas") loadDebts();
+    if (tab.dataset.view === "traspasos") loadTransfers();
+    if (tab.dataset.view === "salud") loadSalud();
   });
 });
 
@@ -43,12 +46,24 @@ async function init() {
   $("#month-picker").addEventListener("change", (e) => { state.month = e.target.value; refresh(); });
   $("#account-filter").addEventListener("change", (e) => { state.account = e.target.value; refresh(); });
   $("#import-btn").addEventListener("click", doImport);
+  $("#recat-btn").addEventListener("click", doRecategorize);
   $("#budget-add").addEventListener("click", addBudget);
+  $("#debt-import-btn").addEventListener("click", doImportDebts);
+  $("#acc-add").addEventListener("click", doAddAccount);
+  $("#salud-income").value = localStorage.getItem("income") || "";
+  $("#salud-calc").addEventListener("click", () => {
+    localStorage.setItem("income", $("#salud-income").value || "");
+    loadSalud();
+  });
+  $("#mail-sync-btn").addEventListener("click", doMailSync);
+  $("#mail-filter-btn").addEventListener("click", showGmailFilter);
+  $("#mailtext-btn").addEventListener("click", doMailText);
 
   [state.categories, state.accounts] = await Promise.all([
     api("/categories"), api("/accounts"),
   ]);
   renderAccountSelectors();
+  renderAccountsList();
   renderCategorySelectors();
   refresh();
   registerSW();
@@ -58,10 +73,37 @@ function renderAccountSelectors() {
   const opts = `<option value="">Todas las cuentas</option>` +
     state.accounts.map((a) => `<option value="${a.id}">${a.name} · ${a.currency}</option>`).join("");
   $("#account-filter").innerHTML = opts;
-  $("#import-account").innerHTML = state.accounts
+  const accOpts = state.accounts
     .map((a) => `<option value="${a.id}">${a.name} · ${a.bank} · ${a.currency}</option>`).join("")
     || `<option value="">(crea una cuenta primero)</option>`;
+  $("#import-account").innerHTML = accOpts;
+  $("#mail-account").innerHTML = accOpts;
+  $("#mailtext-account").innerHTML = accOpts;
 }
+function renderAccountsList() {
+  const el = $("#accounts-list");
+  if (!el) return;
+  el.innerHTML = state.accounts.length
+    ? state.accounts.map((a) => `<span class="chip">${escapeHtml(a.name)} · ${a.currency}</span>`).join(" ")
+    : `<span class="muted">Aún no tienes cuentas.</span>`;
+}
+async function doAddAccount() {
+  const name = $("#acc-name").value.trim();
+  if (!name) { $("#acc-name").focus(); return; }
+  const body = {
+    name, bank: $("#acc-bank").value.trim(),
+    country: $("#acc-country").value, currency: $("#acc-currency").value,
+  };
+  await api("/accounts", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  state.accounts = await api("/accounts");
+  renderAccountSelectors();
+  renderAccountsList();
+  $("#acc-name").value = ""; $("#acc-bank").value = "";
+}
+
 function renderCategorySelectors() {
   const opts = state.categories.map((c) => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join("");
   $("#budget-category").innerHTML = opts;
@@ -177,6 +219,19 @@ async function doImport() {
   }
 }
 
+async function doRecategorize() {
+  const out = $("#recat-result");
+  out.textContent = "Procesando…";
+  try {
+    const r = await api("/maintenance/recategorize", { method: "POST" });
+    out.innerHTML = `✅ Revisados ${r.revisados}, categorizados <b>${r.actualizados}</b>.`;
+    refresh();
+    if (document.querySelector(".tab.active").dataset.view === "movimientos") loadTransactions();
+  } catch (e) {
+    out.textContent = "Error: " + e.message;
+  }
+}
+
 /* -------------------------- presupuestos ---------------------------- */
 async function loadBudgets() {
   const status = await api(`/budgets/status?month=${state.month}`);
@@ -198,6 +253,277 @@ async function addBudget() {
   $("#budget-amount").value = "";
   loadBudgets();
   loadBudgetMini();
+}
+
+/* ----------------------------- deudas ------------------------------- */
+async function loadDebts() {
+  const data = await api("/debts");
+  const t = data.totals;
+  $("#debt-kpis").innerHTML = `
+    <div class="kpi"><div class="label">Deuda total</div>
+      <div class="value neg">${fmt(t.total, "CLP")}</div></div>
+    <div class="kpi"><div class="label">Cuota mensual</div>
+      <div class="value">${fmt(t.monthly, "CLP")}</div></div>
+    <div class="kpi"><div class="label">Por pagar este mes</div>
+      <div class="value ${t.pending_month > 0 ? "neg" : "pos"}">${fmt(t.pending_month, "CLP")}</div></div>
+    <div class="kpi"><div class="label">Créditos de consumo</div>
+      <div class="value neg">${fmt(t.consumo, "CLP")}</div></div>
+    <div class="kpi"><div class="label">Tarjetas de crédito</div>
+      <div class="value neg">${fmt(t.tarjetas || 0, "CLP")}</div></div>
+    <div class="kpi"><div class="label">Líneas de crédito</div>
+      <div class="value neg">${fmt(t.lineas || 0, "CLP")}</div></div>
+    <div class="kpi"><div class="label">En mora</div>
+      <div class="value ${t.arrears > 0 ? "neg" : "pos"}">${fmt(t.arrears, "CLP")}</div></div>`;
+
+  const list = $("#debt-list");
+  if (!data.items.length) {
+    list.innerHTML = `<div class="empty">Aún no importas tu informe de deudas.</div>`;
+    return;
+  }
+  list.innerHTML = data.items.map((d) => {
+    const isCard = (d.credit_type || "").toLowerCase().includes("tarjeta");
+    const ico = d.is_consumo ? "💳" : isCard ? "💳" : "🏦";
+    const nextInfo = d.next_due
+      ? `próximo venc: <b>${d.next_due}</b>${d.paid_this_month ? " ✅ pagada este mes" : ""}`
+      : "sin día de pago configurado";
+    return `<div class="debt">
+      <div class="debt-head">
+        <div class="ico">${ico}</div>
+        <div class="desc">
+          <div class="t">${escapeHtml(d.institution)} ${d.is_consumo ? '<span style="color:var(--primary)">• consumo</span>' : ""}</div>
+          <div class="m">${escapeHtml(d.credit_type)} · ${nextInfo}</div>
+        </div>
+        <div class="amount">${fmt(d.current_amount, "CLP")}</div>
+      </div>
+      <div class="debt-edit">
+        <label>Cuota <input type="number" id="cuota-${d.id}" value="${d.monthly_payment || ""}" /></label>
+        <label>Día <input type="number" min="1" max="31" id="day-${d.id}" value="${d.payment_day || ""}" /></label>
+        <button class="btn mini" onclick="saveDebt(${d.id})">Guardar</button>
+        <button class="btn mini primary" onclick="markPaid(${d.id})">Marcar cuota pagada</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+async function saveDebt(id) {
+  const body = {
+    monthly_payment: Number($("#cuota-" + id).value) || 0,
+    payment_day: Number($("#day-" + id).value) || null,
+  };
+  await api("/debts/" + id, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  loadDebts();
+}
+async function markPaid(id) {
+  await api("/debts/" + id + "/mark_paid", { method: "POST" });
+  loadDebts();
+}
+window.saveDebt = saveDebt;
+window.markPaid = markPaid;
+async function doImportDebts() {
+  const file = $("#debt-file").files[0];
+  const out = $("#debt-import-result");
+  if (!file) { out.textContent = "Elige el archivo CSV del informe."; return; }
+  out.textContent = "Importando…";
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const r = await api("/debts/import", { method: "POST", body: fd });
+    if (r.error) { out.innerHTML = `⚠️ ${r.error}`; return; }
+    out.innerHTML = `✅ ${r.imported} deudas nuevas, ${r.updated} actualizadas.`;
+    loadDebts();
+  } catch (e) {
+    out.textContent = "Error: " + e.message;
+  }
+}
+
+/* ------------------------------ salud ------------------------------- */
+async function loadSalud() {
+  const inc = Number($("#salud-income").value) || 0;
+  const q = new URLSearchParams({ month: state.month });
+  if (inc > 0) q.set("income", inc);
+  const d = await api("/salud?" + q);
+  const el = $("#salud-result");
+  if (d.score == null) {
+    el.innerHTML = `<div class="empty">${escapeHtml(d.message || "Sin datos este mes.")}</div>`;
+    return;
+  }
+  const deg = Math.round(d.score * 3.6);
+  el.innerHTML = `
+    <div class="gauge-wrap">
+      <div class="gauge" style="background:conic-gradient(${d.color} ${deg}deg, var(--surface-2) 0)">
+        <div class="gauge-inner">
+          <div class="gauge-score">${d.score}</div>
+          <div class="gauge-label" style="color:${d.color}">${d.label}</div>
+        </div>
+      </div>
+      <div class="gauge-side">
+        <div>Ingreso: <b>${fmt(d.income, "CLP")}</b></div>
+        <div>Gasto: <b>${fmt(d.expense, "CLP")}</b></div>
+        <div>Cuotas de deuda: <b>${fmt(d.cuota, "CLP")}</b></div>
+        <div>Balance del mes: <b class="${d.balance < 0 ? "neg-text" : ""}">${fmt(d.balance, "CLP")}</b></div>
+        <div>Deuda total: <b>${fmt(d.deuda, "CLP")}</b></div>
+      </div>
+    </div>
+    <div class="metrics">
+      ${d.metrics.map((m) => `
+        <div class="metric ${m.status}">
+          <div class="metric-top"><span>${m.key}</span><span>${m.value}</span></div>
+          <div class="track"><span class="fill" style="width:${Math.min(m.pct, 100)}%"></span></div>
+          <div class="muted">${m.hint}</div>
+        </div>`).join("")}
+    </div>`;
+}
+
+/* ---------------------------- traspasos ----------------------------- */
+function accName(id) {
+  const a = state.accounts.find((x) => x.id === id);
+  return a ? a.name : "Cuenta " + id;
+}
+async function loadTransfers() {
+  const data = await api("/transfers/suggestions");
+  const pl = $("#pairs-list");
+  pl.innerHTML = data.pairs.length ? data.pairs.map((p) => `
+    <div class="sugg">
+      <div class="sugg-info">
+        <div>↑ <b>${fmt(p.a.amount, p.a.currency)}</b> · ${escapeHtml(accName(p.a.account_id))}
+          — ${escapeHtml(p.a.description)} <span class="muted">${p.a.date}</span></div>
+        <div>↓ <b>${fmt(p.b.amount, p.b.currency)}</b> · ${escapeHtml(accName(p.b.account_id))}
+          — ${escapeHtml(p.b.description)} <span class="muted">${p.b.date}</span></div>
+      </div>
+      <div class="sugg-actions">
+        <button class="btn mini primary" onclick="confirmPair(${p.a.id},${p.b.id})">Es traspaso</button>
+        <button class="btn mini" onclick="dismissTx([${p.a.id},${p.b.id}])">Ignorar</button>
+      </div>
+    </div>`).join("") : `<div class="empty">Sin traspasos por revisar.</div>`;
+
+  const dl = $("#debtpay-list");
+  dl.innerHTML = data.debt_payments.length ? data.debt_payments.map((dp) => `
+    <div class="sugg">
+      <div class="sugg-info">
+        <div><b>${fmt(dp.tx.amount, dp.tx.currency)}</b> · ${escapeHtml(accName(dp.tx.account_id))}
+          — ${escapeHtml(dp.tx.description)} <span class="muted">${dp.tx.date}</span></div>
+        <div class="muted" style="margin-top:4px">Aplicar a:
+          <select id="debtsel-${dp.tx.id}">
+            ${dp.candidates.map((c) => `<option value="${c.id}">${escapeHtml(c.institution)} · ${escapeHtml(c.credit_type)} · saldo ${fmt(c.current_amount, "CLP")}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <div class="sugg-actions">
+        <button class="btn mini primary" onclick="applyDebt(${dp.tx.id})">Aplicar pago</button>
+        <button class="btn mini" onclick="dismissTx([${dp.tx.id}])">Ignorar</button>
+      </div>
+    </div>`).join("") : `<div class="empty">Sin pagos de deuda por revisar.</div>`;
+}
+async function confirmPair(a, b) {
+  await api("/transfers/confirm_pair", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_a: a, id_b: b }),
+  });
+  loadTransfers(); loadSummary();
+}
+async function applyDebt(txId) {
+  const debtId = Number($("#debtsel-" + txId).value);
+  await api("/transfers/confirm_debt", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tx_id: txId, debt_id: debtId }),
+  });
+  loadTransfers(); loadSummary();
+}
+async function dismissTx(ids) {
+  await api("/transfers/dismiss", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  loadTransfers();
+}
+window.confirmPair = confirmPair;
+window.applyDebt = applyDebt;
+window.dismissTx = dismissTx;
+
+/* ----------------------------- correo ------------------------------- */
+async function doMailSync() {
+  const out = $("#mail-result");
+  const body = {
+    account_id: Number($("#mail-account").value),
+    host: $("#mail-host").value.trim(),
+    user: $("#mail-user").value.trim(),
+    password: $("#mail-pass").value,
+    folder: $("#mail-folder").value.trim() || "INBOX",
+    since_days: Number($("#mail-days").value) || 30,
+    use_bank_senders: ($("#mail-folder").value.trim().toUpperCase() === "INBOX"),
+  };
+  if (!body.account_id || !body.user || !body.password) {
+    out.textContent = "Completa cuenta, correo y contraseña de aplicación.";
+    return;
+  }
+  out.textContent = "Conectando y leyendo tu correo…";
+  try {
+    const r = await api("/ingest/email/imap", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const banks = r.por_banco && Object.keys(r.por_banco).length
+      ? "<br>Por banco: " + Object.entries(r.por_banco).map(([b, n]) => `${b} (${n})`).join(", ")
+      : "";
+    out.innerHTML = `✅ Leídos ${r.emails_leidos}, reconocidos ${r.emails_reconocidos}, ` +
+      `importados <b>${r.imported}</b> (omitidos ${r.skipped}).${banks}`;
+    refresh();
+  } catch (e) {
+    out.textContent = "Error: " + e.message;
+  }
+}
+async function showGmailFilter() {
+  const box = $("#mail-filter-box");
+  box.textContent = "Cargando…";
+  try {
+    const r = await api("/bank-senders/gmail-filter");
+    box.innerHTML = `
+      <textarea id="filter-text" rows="4" readonly>${escapeHtml(r.query)}</textarea>
+      <button class="btn mini" id="filter-copy">Copiar</button>
+      <ol class="muted" style="margin-top:10px;padding-left:18px">
+        ${r.pasos.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}
+      </ol>`;
+    $("#filter-copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(r.query);
+        $("#filter-copy").textContent = "¡Copiado!";
+      } catch {
+        $("#filter-text").select();
+      }
+    });
+  } catch (e) {
+    box.textContent = "Error: " + e.message;
+  }
+}
+async function doMailText() {
+  const out = $("#mailtext-result");
+  const body = {
+    account_id: Number($("#mailtext-account").value),
+    body: $("#mailtext-body").value,
+  };
+  if (!body.account_id || !body.body.trim()) {
+    out.textContent = "Elige cuenta y pega el texto del correo.";
+    return;
+  }
+  out.textContent = "Interpretando…";
+  try {
+    const r = await api("/ingest/email/text", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (r.parsed) {
+      const p = r.parsed;
+      out.innerHTML = `✅ ${r.imported ? "Agregado" : "Detectado (duplicado)"}: ` +
+        `<b>${escapeHtml(p.description)}</b> · ${fmt(p.amount, p.currency)} · ${p.date}`;
+      refresh();
+    } else {
+      out.innerHTML = `⚠️ ${r.detail || "No se detectó un movimiento en el texto."}`;
+    }
+  } catch (e) {
+    out.textContent = "Error: " + e.message;
+  }
 }
 
 /* ----------------------------- utils -------------------------------- */

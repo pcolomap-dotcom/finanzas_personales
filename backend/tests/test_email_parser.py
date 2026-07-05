@@ -60,6 +60,31 @@ CASES = [
         "expect": {"amount": -64.35, "currency": "EUR", "merchant": "MERCADONA",
                    "date": dt.date(2026, 7, 1)},
     },
+    {
+        "name": "Itaú - tarjeta de crédito",
+        "subject": "Aviso de compra Itaú",
+        "body": "Compra por $23.990 en JUMBO con tu Tarjeta de Crédito el 15/06/2026.",
+        "sender": "itaupersonas@itau.cl",
+        "expect": {"amount": -23990, "currency": "CLP", "merchant": "JUMBO",
+                   "date": dt.date(2026, 6, 15)},
+    },
+    {
+        "name": "Mercado Pago - sin fecha",
+        "subject": "Pago realizado",
+        "body": "Pagaste $5.990 en SPOTIFY con Mercado Pago.",
+        "sender": "info@mercadopago.com",
+        "received_date": dt.date(2026, 6, 20),
+        "expect": {"amount": -5990, "currency": "CLP", "merchant": "SPOTIFY",
+                   "date": dt.date(2026, 6, 20)},
+    },
+    {
+        "name": "BancoEstado - compra",
+        "subject": "Compra con tu tarjeta",
+        "body": "Compra por $8.500 en COPEC el 10/06/2026.",
+        "sender": "notificaciones@correo.bancoestado.cl",
+        "expect": {"amount": -8500, "currency": "CLP", "merchant": "COPEC",
+                   "date": dt.date(2026, 6, 10)},
+    },
 ]
 
 
