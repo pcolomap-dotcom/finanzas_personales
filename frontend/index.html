@@ -1,0 +1,81 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#111827" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" href="/icon.svg" />
+<link rel="stylesheet" href="/styles.css" />
+<title>💰 Finanzas App</title>
+
+<header class="topbar">
+  <div class="brand">💰 <span>Finanzas</span></div>
+  <div class="controls">
+    <select id="account-filter" title="Cuenta"></select>
+    <input type="month" id="month-picker" />
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-view="resumen">Resumen</button>
+  <button class="tab" data-view="movimientos">Movimientos</button>
+  <button class="tab" data-view="importar">Importar</button>
+  <button class="tab" data-view="presupuestos">Presupuestos</button>
+</nav>
+
+<main id="app">
+  <!-- RESUMEN -->
+  <section id="view-resumen" class="view active">
+    <div id="kpis" class="kpis"></div>
+    <div class="card">
+      <h2>Gasto por categoría</h2>
+      <div id="cat-breakdown" class="breakdown"></div>
+    </div>
+    <div class="card">
+      <h2>Presupuestos del mes</h2>
+      <div id="budget-mini"></div>
+    </div>
+  </section>
+
+  <!-- MOVIMIENTOS -->
+  <section id="view-movimientos" class="view">
+    <div class="card">
+      <h2>Movimientos</h2>
+      <div id="tx-list" class="tx-list"></div>
+    </div>
+  </section>
+
+  <!-- IMPORTAR -->
+  <section id="view-importar" class="view">
+    <div class="card">
+      <h2>Importar cartola CSV</h2>
+      <p class="muted">Descarga el CSV de tu banco y súbelo. Detectamos las columnas
+        (fecha, glosa, monto o cargo/abono) automáticamente.</p>
+      <label>Cuenta destino
+        <select id="import-account"></select>
+      </label>
+      <label>Archivo CSV
+        <input type="file" id="import-file" accept=".csv,text/csv" />
+      </label>
+      <button id="import-btn" class="btn primary">Importar</button>
+      <div id="import-result" class="result"></div>
+    </div>
+  </section>
+
+  <!-- PRESUPUESTOS -->
+  <section id="view-presupuestos" class="view">
+    <div class="card">
+      <h2>Nuevo presupuesto mensual</h2>
+      <div class="row">
+        <select id="budget-category"></select>
+        <input type="number" id="budget-amount" placeholder="Monto límite" />
+        <select id="budget-currency"><option>CLP</option><option>EUR</option></select>
+        <button id="budget-add" class="btn primary">Añadir</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Presupuestos</h2>
+      <div id="budget-list"></div>
+    </div>
+  </section>
+</main>
+
+<script src="/app.js"></script>
