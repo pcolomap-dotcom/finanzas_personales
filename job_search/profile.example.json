@@ -1,0 +1,35 @@
+{
+  "cv_path": "job_search/data/cv.pdf",
+  "target_titles": ["Data Analyst", "Analista de Datos", "Business Intelligence"],
+  "keywords": ["python", "sql", "power bi", "excel"],
+  "exclude_keywords": ["senior staff", "unpaid", "prácticas"],
+  "locations": ["Santiago", "Chile", "Madrid", "España", "Remote"],
+  "remote_ok": true,
+  "min_salary": 0,
+  "salary_currency": "EUR",
+  "languages": ["español", "inglés"],
+  "seniority": "mid",
+  "dealbreakers": ["turnos de noche", "100% comisión"],
+  "screening_answers": {
+    "work_authorization": "Ciudadano chileno con permiso de trabajo en España",
+    "notice_period": "15 días",
+    "salary_expectation": "Según banda del puesto",
+    "willing_to_relocate": "Sí, dentro de España"
+  },
+  "sources": {
+    "getonbrd": true,
+    "remotive": true,
+    "arbeitnow": false,
+    "files": ["job_search/data/manual_jobs.json"]
+  },
+  "llm": {
+    "model": "claude-opus-5-5",
+    "effort": "medium",
+    "max_jobs_to_score": 25
+  },
+  "thresholds": {
+    "candidate_fit": 65,
+    "employer_fit": 70,
+    "max_missing_must_haves": 1
+  }
+}

@@ -52,6 +52,10 @@ los de consumo). Compatible con el formato oficial CMF.
 cd backend && python tests/test_email_parser.py && python tests/test_psd2_mapper.py
 ```
 
+## Extra: buscador IA de empleo
+CLI independiente en `job_search/` que busca ofertas y las evalúa contra tu CV con Claude
+(encaje candidato + empleador). Ver `job_search/README.md`.
+
 ## Documentación
 - `docs/AGENTS.md` — flota de agentes del proyecto.
 - `docs/CONEXION.md` — conexión automática de cuentas (CL emails + ES PSD2).
