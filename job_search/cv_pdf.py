@@ -1,6 +1,7 @@
 """Genera un CV en PDF (A4, una página, fuentes estándar → archivo pequeño) desde un JSON.
 
     python -m job_search.cv_pdf cv.json salida.pdf [--override oferta.json]
+    python -m job_search.cv_pdf cv.json carta.pdf --letter carta.json
 
 El override reemplaza claves de primer nivel (titulo, perfil, competencias, experiencia...)
 para adaptar el CV a una oferta sin tocar el CV base.
@@ -66,16 +67,40 @@ def build(cv: dict, out: str | Path) -> None:
     doc.build([Paragraph(cv["nombre"].upper(), H1), Paragraph(cv["titulo"], SUB), Paragraph(cv["perfil"], PROF), table])
 
 
+LETTER = ParagraphStyle("l", parent=BASE, fontSize=10.5, leading=15, spaceAfter=9)
+
+
+def build_letter(cv: dict, letter: dict, out: str | Path) -> None:
+    """Carta de presentación de una página con la misma cabecera que el CV.
+
+    letter = {"fecha": "Barcelona, 16 de octubre de 2026", "saludo": "...", "parrafos": [...], "firma": [...]}
+    """
+    doc = SimpleDocTemplate(str(out), pagesize=A4, leftMargin=25 * mm, rightMargin=25 * mm,
+                            topMargin=20 * mm, bottomMargin=20 * mm, title=f"Carta {cv['nombre']}", author=cv["nombre"])
+    contact = " · ".join(cv["contacto"])
+    story = [Paragraph(cv["nombre"].upper(), H1), Paragraph(contact, ParagraphStyle("c", parent=SMALL, spaceAfter=18)),
+             Paragraph(letter["fecha"], ParagraphStyle("f", parent=LETTER, spaceAfter=14)),
+             Paragraph(letter["saludo"], LETTER)]
+    story += [Paragraph(t, LETTER) for t in letter["parrafos"]]
+    sign = ParagraphStyle("s0", parent=LETTER, spaceAfter=0)
+    story += [Spacer(1, 6)] + [Paragraph(t, sign) if t else Spacer(1, 18) for t in letter["firma"]]
+    doc.build(story)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("cv_json")
     ap.add_argument("out")
     ap.add_argument("--override")
+    ap.add_argument("--letter", help="JSON de carta: genera la carta en vez del CV")
     a = ap.parse_args()
     cv = json.loads(Path(a.cv_json).read_text(encoding="utf-8"))
     if a.override:
         cv |= json.loads(Path(a.override).read_text(encoding="utf-8"))
-    build(cv, a.out)
+    if a.letter:
+        build_letter(cv, json.loads(Path(a.letter).read_text(encoding="utf-8")), a.out)
+    else:
+        build(cv, a.out)
 
 
 if __name__ == "__main__":
